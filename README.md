@@ -6,9 +6,7 @@ Repository containing computer code to reproduce the simulations in the paper
 
 ## Table of Contents
 
-* Motivating Example
-
-This folder includes the brief simulation to demonstrate differences 
+* **Motivating Example**: This folder includes the brief simulation to demonstrate differences 
 between correlations and partial correlations.
 
 
