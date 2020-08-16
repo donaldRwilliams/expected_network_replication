@@ -1,5 +1,5 @@
 ---
-title: "code"
+title: "motivating example"
 author: "Donny Williams"
 date: "8/16/2020"
 output: html_document
@@ -9,22 +9,63 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+### Required packages
+```{r}
+library(BGGM)
+library(ggplot2)
+library(corpcor)
+library(GGMnonreg)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
 ```
 
-## Including Plots
+Note that the first three can be installed from CRAN with `install.packages()`, whereas the third can be installed
+from github with `devtools::install_github("donaldRwilliams/GGMnonreg")`. 
 
-You can also embed plots, for example:
+## Figure 1: Sample Correlations
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+# correlations
+cors <- BGGM::ptsd_cor1
+
+pcs <- corpcor::cor2pcor(cors)
+
+data1 <- pcs[upper.tri(pcs)]
+
+data2 <- cors[upper.tri(cors)]
+
+
+
+
+dat <- data.frame(x = c(data1, data2), 
+               Type=rep(c("Partial", "Zero-order"), 
+                        c(length(data1), length(data2))))
+ggplot(dat) + 
+  geom_histogram(aes(x = x, 
+                     fill = Type), 
+                 colour ="white", 
+                 alpha=0.60, 
+                 position="identity", 
+                 binwidth = .05, 
+                 size = 1) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank(), 
+        legend.position = "top", 
+        axis.title = element_text(size = 14), 
+        legend.text = element_text(size = 12), 
+        panel.grid.major = element_line(color = "grey90", 
+                                        linetype = "dotted")) +
+  scale_y_continuous(expand = c(0,0), 
+                     limits = c(0, 30), 
+                     breaks = seq(0,30,5)) +
+  ylab("Count") +
+  xlab("Sample Correlation Coefficient") +
+  scale_fill_manual(values = c("#CC79A7", "#009E73"))
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+
+
+
