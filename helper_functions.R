@@ -1,4 +1,3 @@
-
 power_z <- function(r, n, c = 0, 
                     compare = FALSE, 
                     alpha = 0.05){
@@ -183,7 +182,6 @@ gen_ordinal_new <- function(n,  cor_mat,
   data
   
 }
-
 
 rmvord_naiv <- function(n, probs, Cors, emp) {
   q = length(probs)

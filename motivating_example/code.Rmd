@@ -53,23 +53,23 @@ ggplot(dat) +
         axis.title = element_text(size = 14), 
         legend.text = element_text(size = 12), 
         panel.grid.major = element_line(color = "grey90", 
-                                        linetype = "dotted")) +
+                                        linetype = "dotted"), legend.title = element_blank()) +
   scale_y_continuous(expand = c(0,0), 
                      limits = c(0, 16), 
                      breaks = seq(0,15,5)) +
   ylab("Count") +
-  xlab("Sample Correlation Coefficient") +
-  scale_fill_manual(values = c("#CC79A7", "#009E73"))
+  xlab("Sample Correlation Coefficients") +
+  scale_fill_manual(values = c("#CC79A7", "#009E73"), 
+                    labels = c(expression("Partial"~"("*italic(p)~"= 16)"),"Zero-Order"))
 
 ```
 
 
 ## Figure 1: Controlling for Variables
-
 ```{r}
 n <- seq(150, 500)
 ord <- c(0, seq(20, 100, 20))
-reps <- c(2, 5, 10)
+reps <- c(2, 4, 8)
 
 ls <- list()
 
