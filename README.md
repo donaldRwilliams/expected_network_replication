@@ -4,7 +4,12 @@ Repository containing computer code to reproduce the simulations in the paper
 
 "Learning to Live with Sampling Variability: Learning to Live with Sampling Variability: Expected Replicability in Partial Correlation Networks"
 
+Note that the file `helper_functions.R` needs to be run before attempting to reproduce any of the examples.
+
 ## Table of Contents
+
+
+
 
 * **Motivating Example**: This folder includes the brief simulation to demonstrate differences 
 between correlations and partial correlations.
