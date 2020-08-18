@@ -42,11 +42,11 @@ dat <- data.frame(x = c(data1, data2),
 ggplot(dat) + 
   geom_histogram(aes(x = x, 
                      fill = Type), 
-                 colour ="white", 
-                 alpha=0.60, 
+                 colour ="black", 
+                 alpha = 0.60, 
                  position="identity", 
                  binwidth = .025, 
-                 size = 1) +
+                 size = 0.5) +
   theme_bw() +
   theme(panel.grid.minor = element_blank(), 
         legend.position = "top", 
@@ -60,12 +60,13 @@ ggplot(dat) +
   ylab("Count") +
   xlab("Sample Correlation Coefficients") +
   scale_fill_manual(values = c("#CC79A7", "#009E73"), 
-                    labels = c(expression("Partial"~"("*italic(p)~"= 16)"),"Zero-Order"))
+                    labels = c(expression("Partial"~"("*italic(p)~"= 16)")," Zero-Order"))
 
 ```
 
 
 ## Figure 1: Controlling for Variables
+
 ```{r}
 n <- seq(150, 500)
 ord <- c(0, seq(20, 100, 20))
@@ -127,4 +128,89 @@ ggplot(dat, aes(x = as.factor(n),
 ```
 
 
+# Figure 1: Simulation
+
+```{r}
+true <- diag(4)
+true[upper.tri(true)] <- 0.10
+true[lower.tri(true)] <- 0.10
+cors <- corpcor::pcor2cor(true)
+
+
+pcor2_ls <- list()
+pcor3_ls <- list()
+pcor4_ls <- list()
+
+
+cor2_ls <- list()
+cor3_ls <- list()
+cor4_ls <- list()
+
+for(i in 1:5000){
+    print(i)
+  
+  Y1 <- MASS::mvrnorm(n = 1000, mu = rep(0, 4), Sigma = cors)
+  Y2 <- MASS::mvrnorm(n = 1000, mu = rep(0, 4), Sigma = cors)
+  Y3 <- MASS::mvrnorm(n = 1000, mu = rep(0, 4), Sigma = cors)
+  Y4 <- MASS::mvrnorm(n = 1000, mu = rep(0, 4), Sigma = cors)
+
+
+  cor_pvalues1 <- ifelse( cor_test(cor(Y1), n = 1000, c = 0)[upper.tri(diag(4))] < 0.05, 1, 0)
+  cor_pvalues2 <- ifelse( cor_test(cor(Y2), n = 1000, c = 0)[upper.tri(diag(4))] < 0.05, 1, 0)
+  cor_pvalues3 <- ifelse( cor_test(cor(Y3), n = 1000, c = 0)[upper.tri(diag(4))] < 0.05, 1, 0)
+  cor_pvalues4 <- ifelse( cor_test(cor(Y4), n = 1000, c = 0)[upper.tri(diag(4))] < 0.05, 1, 0)
+
+
+
+  res_cor2 <- as.data.frame( t(rbind(cor_pvalues1, cor_pvalues2)))
+  res_cor2$tally  <- rowSums(res_pcor2)
+
+  res_cor3 <- as.data.frame(t(rbind(cor_pvalues1, cor_pvalues2, cor_pvalues3)))
+  res_cor3$tally  <- rowSums(res_cor3)
+
+  res_cor4 <- as.data.frame(t(rbind(cor_pvalues1, cor_pvalues2, cor_pvalues3, cor_pvalues4)))
+  res_cor4$tally  <- rowSums(res_cor4)
+
+
+  cor2_ls[[i]] <- data.frame(nets = 2,
+                           replicated = sum(res_cor2$tally == 2),
+                           type = "cor")
+
+  cor3_ls[[i]] <- data.frame(nets = 3,
+                           replicated = sum(res_cor3$tally == 3),
+                           type = "cor")
+  cor4_ls[[i]] <- data.frame(nets = 4, replicated = sum(res_cor4$tally == 4), 
+                           type = "cor")
+
+
+  pcor_pvalues1 <- ifelse(cor_test(corpcor::cor2pcor(cor(Y1)), n = 1000, c = 2)[upper.tri(diag(4))] < 0.05, 1, 0)
+  pcor_pvalues2 <- ifelse(cor_test(corpcor::cor2pcor(cor(Y2)), n = 1000, c = 2)[upper.tri(diag(4))] < 0.05, 1, 0)
+  pcor_pvalues3 <- ifelse(cor_test(corpcor::cor2pcor(cor(Y3)), n = 1000, c = 2)[upper.tri(diag(4))] < 0.05, 1, 0)
+  pcor_pvalues4 <- ifelse(cor_test( corpcor::cor2pcor(cor(Y4)), n = 1000, c = 2)[upper.tri(diag(4))] < 0.05, 1, 0)
+
+  res_pcor2 <- as.data.frame( t(rbind(pcor_pvalues1, pcor_pvalues2)))
+  res_pcor2$tally  <- rowSums(res_pcor2)
+
+  res_pcor3 <- as.data.frame(t(rbind(pcor_pvalues1, pcor_pvalues2, pcor_pvalues3)))
+  res_pcor3$tally  <- rowSums(res_pcor3)
+
+  res_pcor4 <- as.data.frame(t(rbind(pcor_pvalues1, pcor_pvalues2, pcor_pvalues3, pcor_pvalues4)))
+  res_pcor4$tally  <- rowSums(res_pcor4)
+
+  pcor2_ls[[i]] <- data.frame(nets = 2, replicated = sum(res_pcor2$tally == 2), type = "pcor")
+  pcor3_ls[[i]] <- data.frame(nets = 3, replicated = sum(res_pcor3$tally == 3), type = "pcor")
+  pcor4_ls[[i]] <- data.frame(nets = 4, replicated = sum(res_pcor4$tally == 4), type = "pcor")
+
+}
+
+results <- rbind(
+do.call(rbind.data.frame, pcor2_ls),
+do.call(rbind.data.frame, pcor3_ls),
+do.call(rbind.data.frame, pcor4_ls),
+do.call(rbind.data.frame, cor2_ls),
+do.call(rbind.data.frame, cor3_ls),
+do.call(rbind.data.frame, cor4_ls)
+)
+
+```
 
