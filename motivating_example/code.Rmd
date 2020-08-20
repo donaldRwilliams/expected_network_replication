@@ -271,7 +271,15 @@ plot_2b <- ggplot(dat_plot, aes(x = factor(edges),
   facet_grid(~ groups) +
   scale_fill_manual(name ="", 
                     values = c("#CC79A7", 
-                               "#999999")) 
+                               "#999999")) +
+  scale_x_discrete(labels = c(expression(frac("0","6")),  
+                              expression(frac("1","6")),
+                              expression(frac("2","6")),
+                              expression(frac("3","6")),
+                              expression(frac("4","6")),
+                              expression(frac("5","6")),
+                              expression(frac("6","6"))
+                              ))
 
 plot_2b
 ```
@@ -283,7 +291,7 @@ cowplot::plot_grid(plot_2a,
           "",
           plot_2b, 
           nrow = 3,
-          rel_heights = c(1, 0.1, 1),
+          rel_heights = c(1, 0.1, 1.075),
           labels = c("A", "", "B"), 
           label_size = 22,
           label_fontface = "plain")
