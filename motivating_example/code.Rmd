@@ -133,7 +133,7 @@ plot_2a
 ```
 
 
-# Figure 2B: Simulation
+# Figure 2B: Simulation (motivating example)
 ```{r}
 n <- 800
 sims <- 5000
@@ -300,6 +300,196 @@ cowplot::plot_grid(plot_2a,
 
 
 
+# Figure 3: Simulation (verify the method works)
+Note this simulation takes a while. To make the plot, load `results.csv`.
+
+## Simulation
+
+```{r}
+sim_func <- function(n, p, type, iter){
+  
+  main <- BDgraph::bdgraph.sim(n = n, p = p, type = type)
+  
+  pcs <- cov2cor( main$K)[upper.tri(diag(p))] * -1
+  
+  which_nonzero <- which(main$G[upper.tri(main$G)] != 0)
+  
+  
+  
+  res_ls <- list()
+  
+  for(i in 1:iter){
+    
+    if(i %% 10==0) {
+
+      # Print on the screen some message
+
+      cat(paste0("iteration: ", i, "\n"))
+    }
+
+    Y1 <- BGGM:::mvnrnd(n, rep(0, p), Sigma = cov2cor(main$sigma))
+    Y2 <- BGGM:::mvnrnd(n, rep(0, p), Sigma = cov2cor(main$sigma))
+    Y3 <- BGGM:::mvnrnd(n, rep(0, p), Sigma = cov2cor(main$sigma))
+    Y4 <- BGGM:::mvnrnd(n, rep(0, p), Sigma = cov2cor(main$sigma))
+    
+    adj1 <- ifelse(cor_test(abs(corpcor::cor2pcor( cor(Y1) ))[upper.tri(diag(p))][which_nonzero], 
+                            n = n, 
+                            c = p - 2) < 0.05, 1, 0 )
+    
+    adj2 <- ifelse(cor_test(abs( corpcor::cor2pcor( cor(Y2) ))[upper.tri(diag(p))][which_nonzero], 
+                            n = n, 
+                            c = p - 2) < 0.05, 1, 0 )
+    
+    adj3 <- ifelse(cor_test(abs( corpcor::cor2pcor( cor(Y3) ))[upper.tri(diag(p))][which_nonzero], 
+                            n = n, 
+                            c = p - 2) < 0.05, 1, 0 )
+    
+    adj4 <- ifelse(cor_test(abs( corpcor::cor2pcor( cor(Y4) ))[upper.tri(diag(p))][which_nonzero], 
+                            n = n, 
+                            c = p - 2) < 0.05, 1, 0 )
+    
+    reps1 <- cbind(adj1, adj2, adj3, adj4)
+    
+    # remove replicating 1, 2, and 3
+    replicated <- sapply(1:4, function(x)   sum(rowSums(as.matrix(reps1[,1:x])) == x)  )[-3]
+    
+    res_ls[[i]] <-  data.frame(nets = c(1,2,4), 
+                               number = replicated)
+    
+    
+  }
+ 
+  dat <- do.call(rbind.data.frame, res_ls)
+  
+  pwr <- power_z(abs(pcs[which_nonzero]), alpha = 0.05,
+                n = n,
+                c = p -2)
+ 
+ res <- do.call(rbind.data.frame, res_ls)
+ 
+ ids <- 0:length(which_nonzero)
+ 
+ returned_list <- list()
+ 
+ for(i in c(1, 2, 4)){
+ 
+ 
+ F_sim <- sapply(1:length(ids), function(x) mean(subset(res, nets == i)[,2]  <= ids[x]))
+ F_DFT <- poibin::ppoibin(0:length(which_nonzero), pwr^i)
+ returned_list[[i]] <- data.frame(max = max(abs(F_sim - F_DFT)), 
+                                  MAE = mean(abs(F_sim - F_DFT)), 
+                                  nets = i, n = n, p = p,  type = type)
+ }
+ 
+ return(do.call(rbind.data.frame, returned_list))
+ 
+}
+
+n <- c(100, 250, 500, 1000)
+
+p <- seq(10, 30, 10)
+
+type <- c("random", "hub", "scale-free")
+
+
+results <- do.call(rbind.data.frame,
+
+lapply(1:length(n), function(x)
+
+  do.call(rbind.data.frame,
+
+lapply(1:length(p), function(y)
+
+  do.call(rbind.data.frame,
+
+          lapply(1:length(type),  function(z) {
+
+            print( paste0(type[z],"; p = ",   p[y], "; n = ", n[x]))
+            sim_func(n = n[x], p = p[y], type = type[z], iter = 10000)
+  }
+))))))
+
+write.csv(results, "results.csv")
+
+```
+
+## Make Figure
+
+```{r}
+results <- read.csv("results.csv")
+
+results$nets_new <- factor(
+  results$nets,
+  labels = c("Networks = 1",
+             "Networks = 2",
+             "Networks = 4"),
+  levels = c(1, 2, 4)
+)
+
+results$type_new <- factor(results$type, 
+                           labels = c("Hub", 
+                                      "Random", 
+                                      "Scale-Free"), 
+                           levels = c("hub", "random", "scale-free"))
+
+
+# mean absolute error
+p1 <- ggplot(results, aes(x = as.factor(n), 
+                    fill = as.factor(p), 
+                    y = MAE)) +
+  facet_grid(type_new ~ nets_new) +
+  geom_col(width = 0.75, position = "dodge",  color = "black") +
+  theme_bw() +
+theme(panel.grid = element_blank(),   
+      axis.title = element_text(size = 12), 
+      legend.text = element_text(size = 12), 
+      legend.position = "top",
+      strip.background = element_rect(fill = "grey97"),
+      plot.title = element_text(size = 20),
+      panel.spacing.x = unit(3, "lines")) +
+  scale_fill_manual(name = "Nodes", values = c("#CC79A7",
+                                                 "#009E73", 
+                                                 "#0072B2")) +
+  ylab("Mean Absolute Error") +
+  xlab("Sample Size") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.0105))
+
+
+
+# maximum difference
+scaleFUN <- function(x) sprintf("%.4f", x)
+
+p2 <- ggplot(results, aes(x = as.factor(n), 
+                          fill = as.factor(p), 
+                          y = max)) +
+  facet_grid(type_new ~ nets_new) +
+  geom_col(width = 0.75, position = "dodge",  color = "black") +
+  theme_bw() +
+  theme(panel.grid = element_blank(),   
+        axis.title = element_text(size = 12), 
+        legend.text = element_text(size = 12), 
+        legend.position = "top",
+        strip.background = element_rect(fill = "grey97"),
+        plot.title = element_text(size = 20),
+        panel.spacing.x = unit(3, "lines")) +
+  scale_fill_manual(name = "Nodes", values = c("#CC79A7",
+                                               "#009E73", 
+                                               "#0072B2")) +
+  ylab("Maximum Difference") +
+  xlab("Sample Size") + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.075),  
+                    labels = scaleFUN)
+
+
+# combine
+
+cowplot::plot_grid(cowplot::get_legend(p1),
+  p1 + theme(legend.position = "none"), 
+  NULL,
+                   p2 + theme(legend.position = "none"), 
+                   nrow = 4, rel_heights = c(.1, 1, 0.05, 1))
+
+```
 
 
 # Figure 4: BFI
@@ -538,15 +728,12 @@ plt_ptsd <- ggplot(data =  dat_res,
 
 
 # Figure 4: Forbes
-
 ```{r}
+# forbes data
 pcors_forbes  <- corpcor::cor2pcor( cor(BGGM::depression_anxiety_t1))
 
-# forbes
-
 net_forbes <- ifelse(abs(pcors_forbes[upper.tri(pcors_forbes)]) < 0.05, 0,  
-                   pcors_forbes[upper.tri(pcors_forbes)] )
-
+                     pcors_forbes[upper.tri(pcors_forbes)] )
 
 edges_forbes <- abs(net_forbes[net_forbes != 0])
 
@@ -554,13 +741,10 @@ p <- ncol(pcors_forbes)
 n_t <- 0.5 * (p * (p-1))
 n_e <- length(edges_forbes)
 
-
 res_forbes <- lapply(1:length(n), function(x){
   
   pwr_un <- power_z(edges_forbes, n = n[x], c = p - 2, alpha = 0.05)
   pwr_cor <- power_z(edges_forbes, n = n[x], c = p - 2, alpha = 0.05 / n_t)
-  
-  
   
   dat_un <- data.frame(x = rep(0:n_e,2), 
                        Networks = rep(c('2_un', "4_un"), each = n_e + 1),
@@ -649,7 +833,6 @@ plt_forbes <- ggplot(data =  dat_res,
 
 
 # Figure 4: Combine
-
 ```{r}
 cowplot::plot_grid(
   cowplot::get_legend(plt_bfi +
