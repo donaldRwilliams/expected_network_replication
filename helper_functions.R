@@ -214,7 +214,7 @@ rmvord_naiv <- function(n, probs, Cors, emp) {
 
 cor_test <- function(r, n, c){
   z <- atanh(abs(r))
-  se <- 1 /sqrt(n - c - 3)
+  se <- sqrt(1.06 / (n - c - 3))
   pnorm(z/se, lower.tail = FALSE) * 2
   
 }

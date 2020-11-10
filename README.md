@@ -1,20 +1,16 @@
-# Expected Network Replicability
-
-Repository containing computer code to reproduce the simulations in the paper
-
-"Learning to Live with Sampling Variability: Learning to Live with Sampling Variability: Expected Replicability in Partial Correlation Networks"
-
-Note that the file `helper_functions.R` needs to be run before attempting to reproduce any of the examples.
-
-## Table of Contents
+# Learning to Live with Sampling Variability: Learning to Live with Sampling Variability: Expected Replicability in Partial Correlation Networks
 
 
+This repo contains R code to reproduce the simulations in Williams (2020).
 
 
-* **Motivating Example**: This folder includes the brief simulation to demonstrate differences 
-between correlations and partial correlations.
+# File Descriptions
+
+* code.Rmd: This code will reproduce the entire paper in order.
+
+  * helper_functions.R: This file includes the necessary functions to run the code.
 
 
 
-Williams, D. R. (2020, January 27). Learning to Live with Sampling Variability: Expected Replicability in Partial Correlation Networks. 
-[https://doi.org/10.31234/osf.io/fb4sa](https://doi.org/10.31234/osf.io/fb4sa)
+
+Williams, D. R. (2020). Learning to Live with Sampling Variability: Expected Replicability in Partial Correlation Networks. https://doi.org/10.31234/osf.io/fb4sa
