@@ -1,4 +1,4 @@
-# Learning to Live with Sampling Variability: Learning to Live with Sampling Variability: Expected Replicability in Partial Correlation Networks
+# Learning to Live with Sampling Variability: Expected Replicability in Partial Correlation Networks
 
 
 This repo contains R code to reproduce the simulations in Williams (2020).
