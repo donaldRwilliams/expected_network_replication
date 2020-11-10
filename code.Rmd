@@ -1,0 +1,1017 @@
+---
+title: "motivating example"
+author: "Donny Williams"
+date: "8/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required packages
+```{r}
+library(BGGM)
+library(ggplot2)
+library(corpcor)
+library(GGMnonreg)
+library(MASS)
+library(ggthemes)
+library(cowplot)
+```
+
+Note that the first three can be installed from CRAN with `install.packages()`, whereas the third can be installed
+from github with `devtools::install_github("donaldRwilliams/GGMnonreg")`. 
+
+## Figure 1: Sample Correlations
+
+```{r}
+# correlations
+cors <- BGGM::ptsd_cor1
+
+pcs <- corpcor::cor2pcor(cors)
+
+data1 <- pcs[upper.tri(pcs)]
+
+data2 <- cors[upper.tri(cors)]
+
+
+
+
+dat <- data.frame(x = c(data1, data2), 
+               Type=rep(c("Partial", "Zero-order"), 
+                        c(length(data1), length(data2))))
+ggplot(dat) + 
+  geom_histogram(aes(x = x, 
+                     fill = Type), 
+                 colour ="black", 
+                 alpha = 0.60, 
+                 position="identity", 
+                 binwidth = .025, 
+                 size = 0.5) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank(), 
+        legend.position = "top", 
+        axis.title = element_text(size = 14), 
+        legend.text = element_text(size = 12), 
+        panel.grid.major = element_line(color = "grey90", 
+                                        linetype = "dotted"), legend.title = element_blank()) +
+  scale_y_continuous(expand = c(0,0), 
+                     limits = c(0, 16), 
+                     breaks = seq(0,15,5)) +
+  ylab("Count") +
+  xlab("Sample Correlation Coefficients") +
+  scale_fill_manual(values = c("#CC79A7", "#009E73"), 
+                    labels = c(expression("Partial"~"("*italic(p)~"= 16)")," Zero-Order"))
+
+```
+
+
+## Figure 2A: Controlling for Variables
+
+```{r}
+n <- seq(150, 500)
+ord <- c(0, seq(20, 100, 20))
+reps <- c(2, 4, 8)
+
+ls <- list()
+
+for(i in 1:length(ord)){
+  ls[[i]] <-  do.call(rbind.data.frame, lapply(1:3, function(x) { 
+    temp <- power_z(r = 0.2, 
+                    c = ord[i], 
+                    n = n)^reps[x]
+    data.frame(order = ord[i], 
+               n = n, 
+               power = temp, group = paste("Networks =", reps[x]))
+  }))
+}
+
+
+dat <- do.call(rbind.data.frame, 
+               ls)
+
+dat$facet <- "one"
+
+dat$facet <- factor(dat$facet, levels = c("one"),
+                   labels = expression(italic(rho)~"= 0.10"))
+
+plot_2a <- ggplot(dat, aes(x = as.factor(n), 
+                     y = power, 
+                     color = as.factor(order), 
+                     group = as.factor(order))) +
+  theme_bw() +
+  facet_grid(~ group) +
+  annotate("rect", xmin = -Inf, 
+           xmax = Inf, ymin = 0.80, 
+           ymax = Inf, alpha = 0.1) +
+  geom_hline(yintercept = 0.80, 
+             linetype = "dotted") +
+  geom_line(size = 1.5, alpha = .8) +
+  scale_y_continuous(breaks = seq(0, 1, 0.2)) +
+  theme(panel.grid = element_blank(),   
+         axis.title = element_text(size = 14), 
+         legend.text = element_text(size = 12), 
+        legend.position = "top",
+        strip.background = element_rect(fill = "grey97"),
+        axis.text.x = element_text(angle = 90, vjust = 0),
+        panel.spacing = unit(2, "lines"), 
+        plot.title = element_text(size = 20)
+        ) +
+  ggthemes::scale_color_colorblind(name = "Order") +
+  guides(color = guide_legend(override.aes = list(alpha = 1))) +
+  scale_x_discrete( breaks = seq(150, 500, 1), 
+                    labels = c("150", rep("", 349), "500")) +
+  ylab("Probability") +
+  xlab("Sample Size") +
+  guides(col = guide_legend(nrow = 1, 
+                            byrow = TRUE, 
+                            override.aes = list(alpha = 1))) 
+  
+
+plot_2a
+```
+
+
+# Figure 2B: Simulation (motivating example)
+```{r}
+n <- 800
+sims <- 5000
+true <- diag(4)
+true[upper.tri(true)] <- 0.10
+true[lower.tri(true)] <- 0.10
+cors <- corpcor::pcor2cor(true)
+
+
+pcor2_ls <- list()
+pcor3_ls <- list()
+pcor4_ls <- list()
+
+
+cor2_ls <- list()
+cor3_ls <- list()
+cor4_ls <- list()
+for(i in 1:sims){
+print(i)
+Y1 <- MASS::mvrnorm(n = n, mu = rep(0, 4), Sigma = cors)
+Y2 <- MASS::mvrnorm(n = n, mu = rep(0, 4), Sigma = cors)
+Y3 <- MASS::mvrnorm(n = n, mu = rep(0, 4), Sigma = cors)
+Y4 <- MASS::mvrnorm(n = n, mu = rep(0, 4), Sigma = cors)
+
+
+cor_pvalues1 <- ifelse( cor_test(cor(Y1), n = n, c = 0)[upper.tri(diag(4))] < 0.05, 1, 0)
+cor_pvalues2 <- ifelse( cor_test(cor(Y2), n = n, c = 0)[upper.tri(diag(4))] < 0.05, 1, 0)
+cor_pvalues3 <- ifelse( cor_test(cor(Y3), n = n, c = 0)[upper.tri(diag(4))] < 0.05, 1, 0)
+cor_pvalues4 <- ifelse( cor_test(cor(Y4), n = n, c = 0)[upper.tri(diag(4))] < 0.05, 1, 0)
+
+
+
+res_cor2 <- as.data.frame( t(rbind(cor_pvalues1, cor_pvalues2)))
+res_cor2$tally  <- rowSums(res_cor2)
+
+res_cor3 <- as.data.frame(t(rbind(cor_pvalues1, cor_pvalues2, cor_pvalues3)))
+res_cor3$tally  <- rowSums(res_cor3)
+
+res_cor4 <- as.data.frame(t(rbind(cor_pvalues1, cor_pvalues2, cor_pvalues3, cor_pvalues4)))
+res_cor4$tally  <- rowSums(res_cor4)
+
+
+cor2_ls[[i]] <- data.frame(nets = 2,
+                           replicated = sum(res_cor2$tally == 2),
+                           type = "cor")
+
+cor3_ls[[i]] <- data.frame(nets = 3,
+                           replicated = sum(res_cor3$tally == 3),
+                           type = "cor")
+cor4_ls[[i]] <- data.frame(nets = 4, replicated = sum(res_cor4$tally == 4), 
+                           type = "cor")
+
+
+pcor_pvalues1 <- ifelse(cor_test(corpcor::cor2pcor(cor(Y1)), n = n, c = 2)[upper.tri(diag(4))] < 0.05, 1, 0)
+pcor_pvalues2 <- ifelse(cor_test(corpcor::cor2pcor(cor(Y2)), n = n, c = 2)[upper.tri(diag(4))] < 0.05, 1, 0)
+pcor_pvalues3 <- ifelse(cor_test(corpcor::cor2pcor(cor(Y3)), n = n, c = 2)[upper.tri(diag(4))] < 0.05, 1, 0)
+pcor_pvalues4 <- ifelse(cor_test( corpcor::cor2pcor(cor(Y4)), n = n, c = 2)[upper.tri(diag(4))] < 0.05, 1, 0)
+
+res_pcor2 <- as.data.frame( t(rbind(pcor_pvalues1, pcor_pvalues2)))
+res_pcor2$tally  <- rowSums(res_pcor2)
+
+res_pcor3 <- as.data.frame(t(rbind(pcor_pvalues1, pcor_pvalues2, pcor_pvalues3)))
+res_pcor3$tally  <- rowSums(res_pcor3)
+
+res_pcor4 <- as.data.frame(t(rbind(pcor_pvalues1, pcor_pvalues2, pcor_pvalues3, pcor_pvalues4)))
+res_pcor4$tally  <- rowSums(res_pcor4)
+
+
+pcor2_ls[[i]] <- data.frame(nets = 2, replicated = sum(res_pcor2$tally == 2), type = "pcor")
+pcor3_ls[[i]] <- data.frame(nets = 3, replicated = sum(res_pcor3$tally == 3), type = "pcor")
+pcor4_ls[[i]] <- data.frame(nets = 4, replicated = sum(res_pcor4$tally == 4), type = "pcor")
+
+}
+
+res_cor <- rbind.data.frame( 
+data.frame(type = "cor", net = 2, edges = 0:6,
+prob =  sapply(0:6, function(x) mean( do.call(rbind.data.frame, cor2_ls)[,2] == x))
+),
+data.frame(type = "cor", net = 3,edges = 0:6,
+           prob =  sapply(0:6, function(x) mean( do.call(rbind.data.frame, cor3_ls)[,2] == x))
+),
+data.frame(type = "cor", net = 4, edges = 0:6,
+           prob =  sapply(0:6, function(x) mean( do.call(rbind.data.frame, cor4_ls)[,2] == x))
+))
+
+
+res_pcor <- rbind.data.frame( 
+  data.frame(type = "pcor", net = 2, edges = 0:6,
+             prob =  sapply(0:6, function(x) mean( do.call(rbind.data.frame, pcor2_ls)[,2] == x))
+  ),
+  data.frame(type = "pcor", net = 3,edges = 0:6,
+             prob =  sapply(0:6, function(x) mean( do.call(rbind.data.frame, pcor3_ls)[,2] == x))
+  ),
+  data.frame(type = "pcor", net = 4, edges = 0:6,
+             prob =  sapply(0:6, function(x) mean( do.call(rbind.data.frame, pcor4_ls)[,2] == x))
+  ))
+
+dat_plot <- rbind.data.frame(
+  res_cor,
+  res_pcor
+)
+
+dat_plot$groups <- factor(dat_plot$net, 
+                          levels = c(2, 3, 4),
+                          labels = c("Networks = 2", 
+                                     "Networks =  3", 
+                                     "Networks = 4"))
+
+
+
+dat_plot$type <- factor(dat_plot$type, 
+                        levels= c("pcor", "cor"),
+                        labels = c("GGM", "Association"))
+
+plot_2b <- ggplot(dat_plot, aes(x = factor(edges), 
+                                y = prob, 
+                                fill = type)) +
+  theme_bw() +
+   theme(panel.grid = element_blank(),   
+         axis.title = element_text(size = 14), 
+         legend.text = element_text(size = 12), 
+        legend.position = "top",
+        strip.background = element_rect(fill = "grey97"),
+        plot.title = element_text(size = 20),
+         panel.spacing = unit(2, "lines")
+        ) +
+  geom_col(position = "dodge", 
+           width = 0.75, 
+           color = "black") +
+  labs(x = "Successfully Replicated Edges",
+       y = "Probability") +
+  scale_y_continuous(limits = c(0, 1), 
+                     breaks = seq(0, 1, 0.2), 
+                     expand = c(0, 0)) +
+  facet_grid(~ groups) +
+  scale_fill_manual(name ="", 
+                    values = c("#CC79A7", 
+                               "#999999")) +
+  scale_x_discrete(labels = c(expression(frac("0","6")),  
+                              expression(frac("1","6")),
+                              expression(frac("2","6")),
+                              expression(frac("3","6")),
+                              expression(frac("4","6")),
+                              expression(frac("5","6")),
+                              expression(frac("6","6"))
+                              ))
+
+plot_2b
+```
+
+
+# Figure 2: Combine
+```{r}
+cowplot::plot_grid(plot_2a, 
+          "",
+          plot_2b, 
+          nrow = 3,
+          rel_heights = c(1, 0.1, 1.075),
+          labels = c("A", "", "B"), 
+          label_size = 22,
+          label_fontface = "plain")
+```
+
+
+
+
+# Figure 3: Simulation (verify the method works)
+Note this simulation takes a while. To make the plot, load `results.csv`.
+
+## Simulation
+
+```{r}
+sim_func <- function(n, p, type, iter){
+  
+  main <- BDgraph::bdgraph.sim(n = n, p = p, type = type)
+  
+  pcs <- cov2cor( main$K)[upper.tri(diag(p))] * -1
+  
+  which_nonzero <- which(main$G[upper.tri(main$G)] != 0)
+  
+  
+  
+  res_ls <- list()
+  
+  for(i in 1:iter){
+    
+    if(i %% 10==0) {
+
+      # Print on the screen some message
+
+      cat(paste0("iteration: ", i, "\n"))
+    }
+
+    Y1 <- BGGM:::mvnrnd(n, rep(0, p), Sigma = cov2cor(main$sigma))
+    Y2 <- BGGM:::mvnrnd(n, rep(0, p), Sigma = cov2cor(main$sigma))
+    Y3 <- BGGM:::mvnrnd(n, rep(0, p), Sigma = cov2cor(main$sigma))
+    Y4 <- BGGM:::mvnrnd(n, rep(0, p), Sigma = cov2cor(main$sigma))
+    
+    adj1 <- ifelse(cor_test(abs(corpcor::cor2pcor( cor(Y1) ))[upper.tri(diag(p))][which_nonzero], 
+                            n = n, 
+                            c = p - 2) < 0.05, 1, 0 )
+    
+    adj2 <- ifelse(cor_test(abs( corpcor::cor2pcor( cor(Y2) ))[upper.tri(diag(p))][which_nonzero], 
+                            n = n, 
+                            c = p - 2) < 0.05, 1, 0 )
+    
+    adj3 <- ifelse(cor_test(abs( corpcor::cor2pcor( cor(Y3) ))[upper.tri(diag(p))][which_nonzero], 
+                            n = n, 
+                            c = p - 2) < 0.05, 1, 0 )
+    
+    adj4 <- ifelse(cor_test(abs( corpcor::cor2pcor( cor(Y4) ))[upper.tri(diag(p))][which_nonzero], 
+                            n = n, 
+                            c = p - 2) < 0.05, 1, 0 )
+    
+    reps1 <- cbind(adj1, adj2, adj3, adj4)
+    
+    # remove replicating 1, 2, and 3
+    replicated <- sapply(1:4, function(x)   sum(rowSums(as.matrix(reps1[,1:x])) == x)  )[-3]
+    
+    res_ls[[i]] <-  data.frame(nets = c(1,2,4), 
+                               number = replicated)
+    
+    
+  }
+ 
+  dat <- do.call(rbind.data.frame, res_ls)
+  
+  pwr <- power_z(abs(pcs[which_nonzero]), alpha = 0.05,
+                n = n,
+                c = p -2)
+ 
+ res <- do.call(rbind.data.frame, res_ls)
+ 
+ ids <- 0:length(which_nonzero)
+ 
+ returned_list <- list()
+ 
+ for(i in c(1, 2, 4)){
+ 
+ 
+ F_sim <- sapply(1:length(ids), function(x) mean(subset(res, nets == i)[,2]  <= ids[x]))
+ F_DFT <- poibin::ppoibin(0:length(which_nonzero), pwr^i)
+ returned_list[[i]] <- data.frame(max = max(abs(F_sim - F_DFT)), 
+                                  MAE = mean(abs(F_sim - F_DFT)), 
+                                  nets = i, n = n, p = p,  type = type)
+ }
+ 
+ return(do.call(rbind.data.frame, returned_list))
+ 
+}
+
+n <- c(100, 250, 500, 1000)
+
+p <- seq(10, 30, 10)
+
+type <- c("random", "hub", "scale-free")
+
+
+results <- do.call(rbind.data.frame,
+
+lapply(1:length(n), function(x)
+
+  do.call(rbind.data.frame,
+
+lapply(1:length(p), function(y)
+
+  do.call(rbind.data.frame,
+
+          lapply(1:length(type),  function(z) {
+
+            print( paste0(type[z],"; p = ",   p[y], "; n = ", n[x]))
+            sim_func(n = n[x], p = p[y], type = type[z], iter = 10000)
+  }
+))))))
+
+write.csv(results, "results.csv")
+
+```
+
+## Make Figure
+
+```{r}
+results <- read.csv("results.csv")
+
+results$nets_new <- factor(
+  results$nets,
+  labels = c("Networks = 1",
+             "Networks = 2",
+             "Networks = 4"),
+  levels = c(1, 2, 4)
+)
+
+results$type_new <- factor(results$type, 
+                           labels = c("Hub", 
+                                      "Random", 
+                                      "Scale-Free"), 
+                           levels = c("hub", "random", "scale-free"))
+
+
+# mean absolute error
+p1 <- ggplot(results, aes(x = as.factor(n), 
+                    fill = as.factor(p), 
+                    y = MAE)) +
+  facet_grid(type_new ~ nets_new) +
+  geom_col(width = 0.75, position = "dodge",  color = "black") +
+  theme_bw() +
+theme(panel.grid = element_blank(),   
+      axis.title = element_text(size = 12), 
+      legend.text = element_text(size = 12), 
+      legend.position = "top",
+      strip.background = element_rect(fill = "grey97"),
+      plot.title = element_text(size = 20),
+      panel.spacing.x = unit(3, "lines")) +
+  scale_fill_manual(name = "Nodes", values = c("#CC79A7",
+                                                 "#009E73", 
+                                                 "#0072B2")) +
+  ylab("Mean Absolute Error") +
+  xlab("Sample Size") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.0105))
+
+
+
+# maximum difference
+scaleFUN <- function(x) sprintf("%.4f", x)
+
+p2 <- ggplot(results, aes(x = as.factor(n), 
+                          fill = as.factor(p), 
+                          y = max)) +
+  facet_grid(type_new ~ nets_new) +
+  geom_col(width = 0.75, position = "dodge",  color = "black") +
+  theme_bw() +
+  theme(panel.grid = element_blank(),   
+        axis.title = element_text(size = 12), 
+        legend.text = element_text(size = 12), 
+        legend.position = "top",
+        strip.background = element_rect(fill = "grey97"),
+        plot.title = element_text(size = 20),
+        panel.spacing.x = unit(3, "lines")) +
+  scale_fill_manual(name = "Nodes", values = c("#CC79A7",
+                                               "#009E73", 
+                                               "#0072B2")) +
+  ylab("Maximum Difference") +
+  xlab("Sample Size") + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.075),  
+                    labels = scaleFUN)
+
+
+# combine
+
+cowplot::plot_grid(cowplot::get_legend(p1),
+  p1 + theme(legend.position = "none"), 
+  NULL,
+                   p2 + theme(legend.position = "none"), 
+                   nrow = 4, rel_heights = c(.1, 1, 0.05, 1))
+
+```
+
+
+# Figure 4: BFI
+```{r}
+pcors_bfi <- corpcor::cor2pcor( cor(na.omit(BGGM::bfi[,1:25])))
+
+# bfi
+n <- c(500, 1000, 2000)
+alpha <- c(0.05)
+
+net_bfi <- ifelse(abs(pcors_bfi[upper.tri(pcors_bfi)]) < 0.05, 0,  
+         pcors_bfi[upper.tri(pcors_bfi)] )
+
+
+edges_bfi <- abs(net_bfi[net_bfi != 0])
+
+p <- ncol(pcors_bfi)
+n_t <- 0.5 * (p * (p-1))
+n_e <- length(edges_bfi)
+
+
+res_bfi <- lapply(1:length(n), function(x){
+  
+  pwr_un <- power_z(edges_bfi, n = n[x], c = p - 2, alpha = 0.05)
+  pwr_cor <- power_z(edges_bfi, n = n[x], c = p - 2, alpha = 0.05 / n_t)
+
+  
+
+dat_un <- data.frame(x = rep(0:n_e,2), 
+           Networks = rep(c('2_un', "4_un"), each = n_e + 1),
+           prob = c(poibin::dpoibin(0:n_e, 
+                                    pp = pwr_un^2), 
+                    poibin::dpoibin(0:n_e, 
+                                    pp = pwr_un^4)),
+           sample = paste0("N = ", n[x]), alpha = "un")
+
+dat_cor <- data.frame(x = rep(0:n_e,2), 
+                     Networks = rep(c('2_cor', "4_cor"), each = n_e + 1),
+                     prob = c(poibin::dpoibin(0:n_e, 
+                                              pp = pwr_cor^2), 
+                              poibin::dpoibin(0:n_e, 
+                                              pp = pwr_cor^4)),
+                     sample = paste0("N = ", n[x]), alpha = "cor")
+
+rbind.data.frame(dat_un, dat_cor)
+
+})
+
+
+dat_res <- do.call(rbind.data.frame, res_bfi)
+dat_res$facet <- "BFI"
+
+dat_res$n_new <- factor(dat_res$sample, 
+                        levels = rev(unique(dat_res$sample)), 
+                        labels = rev(unique(dat_res$sample)))
+
+plt_bfi <- ggplot(data =  dat_res,
+                  aes(
+                    x = x,
+                    y  = prob,
+                    group = Networks,
+                    fill = Networks
+                  )) +
+  geom_area(position  = "identity",
+            alpha = 0.75,
+            color = "black") +
+  theme_bw() +
+  geom_vline(xintercept = 0.50 * n_e,
+             linetype = "dotted",
+             size = 0.5) +
+  annotate(
+    "rect",
+    ymin = 0,
+    ymax = Inf,
+    xmin = 0.50 * n_e,
+    xmax = Inf ,
+    alpha = 0.05
+  ) +
+  geom_vline(xintercept = 0.50 * n_e,
+             linetype = "dotted",
+             size = 0.5) +
+  
+  theme(
+    legend.position = "top",
+    panel.spacing.y =  unit(1, "lines"),
+    panel.grid = element_blank(),
+    axis.title = element_text(size = 12),
+    strip.background = element_rect(fill = "grey97"),
+    strip.background.y = element_blank(),
+    strip.text.y = element_blank()
+  )  +
+  scale_fill_manual(values = c("#56B4E9", "#0072B2", "#E69F00",  "#D55E00")) +
+  scale_x_continuous(
+    limits = c(0, n_e),
+    breaks = c(0,
+               0.25 * n_e,
+               0.50 * n_e,
+               0.75 * n_e,
+               1 * n_e),
+    labels = c("0%",
+               "25%",
+               "50%",
+               "75%", "100%")
+  ) +
+  xlab("") +
+  ylab("Probability") +
+  facet_grid(n_new ~ facet, scales = "free_y") +
+  scale_y_continuous(expand = c(0, 0)) 
+```
+
+
+# Figure 4: PTSD
+
+```{r}
+pcors_ptsd <- corpcor::cor2pcor(cor(na.omit(BGGM::ptsd)))
+
+net_ptsd <-
+  ifelse(abs(pcors_ptsd[upper.tri(pcors_ptsd)]) < 0.05, 0,
+         pcors_ptsd[upper.tri(pcors_ptsd)])
+
+
+edges_ptsd <- abs(net_ptsd[net_ptsd != 0])
+
+p <- ncol(pcors_ptsd)
+n_t <- 0.5 * (p * (p - 1))
+n_e <- length(edges_ptsd)
+
+
+res_ptsd <- lapply(1:length(n), function(x) {
+  pwr_un <- power_z(edges_ptsd,
+                    n = n[x],
+                    c = p - 2,
+                    alpha = 0.05)
+  pwr_cor <-
+    power_z(edges_ptsd,
+            n = n[x],
+            c = p - 2,
+            alpha = 0.05 / n_t)
+  
+  
+  
+  dat_un <- data.frame(
+    x = rep(0:n_e, 2),
+    Networks = rep(c('2_un', "4_un"), each = n_e + 1),
+    prob = c(
+      poibin::dpoibin(0:n_e,
+                      pp = pwr_un ^ 2),
+      poibin::dpoibin(0:n_e,
+                      pp = pwr_un ^ 4)
+    ),
+    sample = paste0("N = ", n[x]),
+    alpha = "un"
+  )
+  
+  dat_cor <- data.frame(
+    x = rep(0:n_e, 2),
+    Networks = rep(c('2_cor', "4_cor"), each = n_e + 1),
+    prob = c(
+      poibin::dpoibin(0:n_e,
+                      pp = pwr_cor ^ 2),
+      poibin::dpoibin(0:n_e,
+                      pp = pwr_cor ^ 4)
+    ),
+    sample = paste0("N = ", n[x]),
+    alpha = "cor"
+  )
+  
+  rbind.data.frame(dat_un, dat_cor)
+  
+})
+
+
+
+
+dat_res <- do.call(rbind.data.frame, res_ptsd)
+dat_res$facet <- "PTSD"
+
+
+dat_res$n_new <- factor(dat_res$sample,
+                        levels = rev(unique(dat_res$sample)),
+                        labels = rev(unique(dat_res$sample)))
+
+plt_ptsd <- ggplot(data =  dat_res,
+                   aes(
+                     x = x ,
+                     y  = prob,
+                     group = Networks,
+                     fill = Networks
+                   )) +
+  geom_area(position  = "identity",
+            alpha = 0.75,
+            color = "black") +
+  theme_bw() +
+  geom_vline(xintercept = 0.50 * n_e,
+             linetype = "dotted",
+             size = 0.5) +
+  annotate(
+    "rect",
+    ymin = 0,
+    ymax = Inf,
+    xmin = 0.50 * n_e,
+    xmax = Inf ,
+    alpha = 0.05
+  ) +
+  geom_vline(xintercept = 0.50 * n_e,
+             linetype = "dotted",
+             size = 0.5) +
+  
+  theme(
+    legend.position = "top",
+    panel.spacing.y =  unit(1, "lines"),
+    panel.grid = element_blank(),
+    axis.title = element_text(size = 12),
+    strip.background = element_rect(fill = "grey97"),
+    strip.background.y = element_blank(),
+    strip.text.y = element_blank(),
+  )  +
+  scale_fill_manual(values = c("#56B4E9", "#0072B2", "#E69F00",  "#D55E00")) +
+  scale_x_continuous(
+    limits = c(0, n_e),
+    breaks = c(0,
+               0.25 * n_e,
+               0.50 * n_e,
+               0.75 * n_e,
+               1 * n_e),
+    labels = c("0%",
+               "25%",
+               "50%",
+               "75%", "100%")
+  ) +
+  xlab("Replicated Edges") +
+  ylab("") +
+  facet_grid(n_new ~ facet, scales = "free_y") +
+  scale_y_continuous(expand = c(0, 0)) 
+```
+
+
+# Figure 4: Forbes
+```{r}
+# forbes data
+pcors_forbes  <- corpcor::cor2pcor( cor(BGGM::depression_anxiety_t1))
+
+net_forbes <- ifelse(abs(pcors_forbes[upper.tri(pcors_forbes)]) < 0.05, 0,  
+                     pcors_forbes[upper.tri(pcors_forbes)] )
+
+edges_forbes <- abs(net_forbes[net_forbes != 0])
+
+p <- ncol(pcors_forbes)
+n_t <- 0.5 * (p * (p-1))
+n_e <- length(edges_forbes)
+
+res_forbes <- lapply(1:length(n), function(x){
+  
+  pwr_un <- power_z(edges_forbes, n = n[x], c = p - 2, alpha = 0.05)
+  pwr_cor <- power_z(edges_forbes, n = n[x], c = p - 2, alpha = 0.05 / n_t)
+  
+  dat_un <- data.frame(x = rep(0:n_e,2), 
+                       Networks = rep(c('2_un', "4_un"), each = n_e + 1),
+                       prob = c(poibin::dpoibin(0:n_e, 
+                                                pp = pwr_un^2), 
+                                poibin::dpoibin(0:n_e, 
+                                                pp = pwr_un^4)),
+                       sample = paste0("N = ", n[x]), alpha = "un")
+  
+  dat_cor <- data.frame(x = rep(0:n_e,2), 
+                        Networks = rep(c('2_cor', "4_cor"), each = n_e + 1),
+                        prob = c(poibin::dpoibin(0:n_e, 
+                                                 pp = pwr_cor^2), 
+                                 poibin::dpoibin(0:n_e, 
+                                                 pp = pwr_cor^4)),
+                        sample = paste0("N = ", n[x]), alpha = "cor")
+  
+  rbind.data.frame(dat_un, dat_cor)
+  
+})
+
+
+dat_res <- do.call(rbind.data.frame, res_forbes)
+dat_res$facet <- "Depression/Anxiety"
+
+
+dat_res$n_new <- factor(dat_res$sample,
+                        levels = rev(unique(dat_res$sample)),
+                        labels = rev(unique(dat_res$sample)))
+
+plt_forbes <- ggplot(data =  dat_res,
+                     aes(
+                       x = x ,
+                       y  = prob,
+                       group = Networks,
+                       fill = Networks
+                     )) +
+  geom_area(position  = "identity",
+            alpha = 0.75,
+            color = "black") +
+  theme_bw() +
+  geom_vline(xintercept = 0.50 * n_e,
+             linetype = "dotted",
+             size = 0.5) +
+  annotate(
+    "rect",
+    ymin = 0,
+    ymax = Inf,
+    xmin = 0.50 * n_e,
+    xmax = Inf ,
+    alpha = 0.05
+  ) +
+  geom_vline(xintercept = 0.50 * n_e,
+             linetype = "dotted",
+             size = 0.5) +
+  
+  theme(
+    legend.position = "top",
+    panel.spacing.y =  unit(1, "lines"),
+    panel.grid = element_blank(),
+    axis.title = element_text(size = 12),
+    strip.background = element_rect(fill = "grey97"),
+  )  +
+  scale_fill_manual(values = c("#56B4E9",
+                               "#0072B2",
+                               "#E69F00",
+                               "#D55E00")) +
+  scale_x_continuous(
+    limits = c(0, n_e),
+    breaks = c(0,
+               0.25 * n_e,
+               0.50 * n_e,
+               0.75 * n_e,
+               1 * n_e),
+    labels = c("0%",
+               "25%",
+               "50%",
+               "75%", "100%")
+  ) +
+  xlab("") +
+  ylab("") +
+  facet_grid(n_new ~ facet, scales = "free_y") +
+  scale_y_continuous(expand = c(0, 0))
+```
+
+
+
+# Figure 4: Combine
+```{r}
+cowplot::plot_grid(
+  cowplot::get_legend(plt_bfi +
+                        scale_fill_manual(
+                          values = c("#56B4E9", "#0072B2", "#E69F00",  "#D55E00"),
+                          labels = c(expression("2" ~
+                                                "(" * alpha * " = 0.05 /" ~ italic(n)[t] * ")"),
+                                     expression("2" ~
+                                                  "(" * alpha * " = 0.05)"),
+                                     expression("4" ~
+                                                  "(" * alpha * " = 0.05 /" ~ italic(n)[t] * ")"),
+                                     expression("4" ~
+                                                  "(" * alpha * " = 0.05)")
+                                     ))),
+  cowplot::plot_grid(
+    plt_bfi + theme(legend.position = "none"),
+    plt_ptsd + theme(legend.position = "none"),
+    plt_forbes + theme(legend.position = "none"),
+    nrow = 1
+  ),
+  nrow = 2,
+  rel_heights = c(1, 10)
+)
+
+```
+
+# Figure 5: Planning for Replicability
+
+
+## Compute ENR
+```{r}
+# define partials
+pcors <- abs(runif(60, min = 0.1, max = 0.15))
+
+
+# sample size needed
+N <- ((1.96 + qnorm(c(0.70, 0.80, 0.90)^(0.5))) / atanh(0.1))^2 + 3 + 18
+N <- round(N)
+
+
+for(i in 1:3){
+  pwr <- power_z(pcors , n = N[i], c = 18)
+  dat <- data.frame(sesoi = i,  
+                    dens =  poibin::dpoibin(kk = 0:60,  pp = pwr^2), 
+                    edges = 0:60 / 60, temp = i)
+  res_list[[i]] <- dat
+}
+
+# data frame for plotting
+dat_plot <- do.call(rbind.data.frame, res_list)
+
+# sesoi
+dat_plot$sesoi_new <- factor(dat_plot$sesoi, 
+                             labels = c(expression("(1 - "*beta[SESOI]*") = 0.70 "^frac("1", "2")),  
+                                       expression("(1 - "*beta[SESOI]*") = 0.80 "^frac("1", "2")),
+                                      expression("(1 - "*beta[SESOI]*") = 0.90 "^frac("1", "2"))),
+                             levels = c("1", "2", "3"))
+
+
+
+sesoi_70 <- dat_plot %>% 
+  filter(temp == 1) %>%
+  ggplot(aes(x = edges, 
+             y = dens, 
+             fill = as.factor(sesoi_new))) + 
+  theme_bw() +
+  annotate("rect", ymin = 0, 
+           ymax = Inf, 
+           xmin = 0.70, 
+           xmax =Inf , 
+           alpha = 0.05) +
+  geom_vline(xintercept = 0.70, 
+             linetype = "dotted") + 
+  geom_area(position  = "identity", 
+            alpha = 0.65, 
+            color = "black", 
+            fill = "#999999") +
+  facet_grid(~ sesoi_new, 
+             labeller = label_parsed) +
+  scale_x_continuous(limits = c(0.68, 1), 
+                     expand = c(0,0),
+                     breaks = seq(0.70, 1, 0.1), 
+                     labels = c("70%",  "80%", 
+                                "90%",  "100%")) +
+  scale_y_continuous(expand = c(0, 0), 
+                    limits = c(0, 0.37)) +
+  theme(panel.grid = element_blank(), 
+        legend.position = "none",
+        axis.title = element_text(size = 14), 
+        legend.text = element_text(size = 12),
+        plot.margin = margin(0.1, .5, 0.1, 0, "cm"),
+        strip.background = element_rect(fill = "grey97")) +
+  ylab("Probability") + 
+  xlab("")
+
+sesoi_70
+sesoi_80 <- dat_plot %>% 
+  filter(temp == 2) %>%
+  ggplot(aes(x = edges, 
+             y = dens, 
+             fill = as.factor(sesoi_new))) + 
+  theme_bw() +
+  annotate("rect", ymin = 0, 
+           ymax = Inf, 
+           xmin = 0.80, 
+           xmax =Inf , 
+           alpha = 0.05) +
+  geom_vline(xintercept = 0.80, 
+             linetype = "dotted") + 
+  geom_area(position  = "identity", 
+            alpha = 0.65, 
+            color = "black", 
+            fill = "#D55E00") +
+  facet_grid(~ sesoi_new, 
+             labeller = label_parsed) +
+  scale_x_continuous(limits = c(0.68, 1), 
+                     expand = c(0,0),
+                     breaks = seq(0.70, 1, 0.1),
+                      labels = c("70%",  "80%", 
+                                "90%",  "100%")) +
+  scale_y_continuous(expand = c(0, 0), 
+                     limits = c(0, 0.37)) +
+  theme(panel.grid = element_blank(), 
+        legend.position = "none",
+        axis.title = element_text(size = 14), 
+        legend.text = element_text(size = 12),
+        plot.margin = margin(0.1, .5, 0.1, 0, "cm"),
+        strip.background = element_rect(fill = "grey97")) +
+  ylab("") + 
+  xlab("Replicated Edges")
+
+sesoi_80
+
+sesoi_90 <- dat_plot %>% 
+  filter(temp == 3) %>%
+  ggplot(aes(x = edges, 
+             y = dens, 
+             fill = as.factor(sesoi_new))) + 
+  theme_bw() +
+  annotate("rect", ymin = 0, 
+           ymax = Inf, 
+           xmin = 0.90, 
+           xmax =Inf , 
+           alpha = 0.05) +
+  geom_vline(xintercept = 0.90, 
+             linetype = "dotted") + 
+  geom_area(position  = "identity", 
+            alpha = 0.65, 
+            color = "black", 
+            fill = "#0072B2") +
+  facet_grid(~ sesoi_new, 
+             labeller = label_parsed) +
+  scale_x_continuous(limits = c(0.68, 1), 
+                     expand = c(0, 0),
+                     breaks = seq(0.70, 1, 0.1),
+                      labels = c("70%",  "80%", 
+                                "90%",  "100%")
+                     ) +
+  scale_y_continuous(expand = c(0, 0), 
+                     limits = c(0, 0.37)) +
+  theme(panel.grid = element_blank(), 
+        legend.position = "none",
+        axis.title = element_text(size = 14), 
+        legend.text = element_text(size = 12),
+        plot.margin = margin(0.1, .5, 0.1, 0, "cm"),
+        strip.background = element_rect(fill = "grey97")) +
+  ylab("") + 
+  xlab("")
+
+
+plt_5 <- cowplot::plot_grid(sesoi_70, 
+                   sesoi_80, 
+                   sesoi_90, 
+                   nrow = 1, 
+                   rel_widths = c(1.025,1,1))
+
+ggsave(plt_5, 
+       filename = "figure_5.pdf", 
+       width = 8.5, 
+       height = 2.6)
+
+```
